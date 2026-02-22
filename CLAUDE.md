@@ -65,7 +65,7 @@ uv sync                                        # Install/update deps
 
 ## Quick Reference
 
-- **Location:** `e:/Claude Code Projects/Personal Projects/Skein`
+- **Location:** `e:/Claude Code Projects/Personal Projects/Skein` (folder retains old name)
 - **Namespace:** `KG`
 - **DB file:** `./kg.db` (created on first run)
 - **Config:** `./kg.yaml` (optional, has defaults)

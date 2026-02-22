@@ -211,6 +211,62 @@ def register_tools(server: FastMCP, ctx: KGContext):
         }
 
     @server.tool(
+        name="kg_context",
+        description=(
+            "Get relevant prior knowledge before starting work. Describe what you're "
+            "about to do and get back decisions, patterns, gotchas, and lessons learned "
+            "that may be relevant. Smarter than kg_search — does cross-project discovery "
+            "and recency weighting."
+        ),
+    )
+    def kg_context(
+        task: Annotated[str, Field(description="What you're about to do (1-2 sentences)")],
+        project: Annotated[str | None, Field(description="Scope to a project, or None for all")] = None,
+        limit: Annotated[int, Field(description="Max results to return", ge=1, le=20)] = 8,
+    ) -> dict:
+        from datetime import datetime, timezone
+
+        results = search_module.context_search(
+            ctx.db, ctx.embeddings, task,
+            project=project, limit=limit,
+        )
+
+        if not results:
+            return {
+                "relevant_knowledge": [],
+                "summary": "No relevant prior knowledge found.",
+            }
+
+        now = datetime.now(timezone.utc)
+        items = []
+        for r in results:
+            try:
+                updated = datetime.fromisoformat(r.node.updated_at)
+                if updated.tzinfo is None:
+                    updated = updated.replace(tzinfo=timezone.utc)
+                age_days = int((now - updated).total_seconds() / 86400)
+            except (ValueError, TypeError):
+                age_days = -1
+
+            items.append({
+                "id": r.node.id,
+                "type": r.node.type,
+                "title": r.node.title,
+                "body": r.node.body[:800] + ("..." if len(r.node.body) > 800 else ""),
+                "project": r.node.project,
+                "score": round(r.score, 4),
+                "age_days": age_days,
+            })
+
+        types_found = set(i["type"] for i in items)
+        summary = f"Found {len(items)} relevant items ({', '.join(sorted(types_found))}). Review before proceeding."
+
+        return {
+            "relevant_knowledge": items,
+            "summary": summary,
+        }
+
+    @server.tool(
         name="kg_status",
         description=(
             "Get an overview of the knowledge graph: total nodes, counts by type and project, "

@@ -11,14 +11,13 @@ kg.db
 kg.db-shm
 kg.db-wal
 
-# Legacy (can remove after migration)
+# Legacy (pre-rename) — delete when locks release
 skein.db
 skein.db-shm
 skein.db-wal
 
 # User-specific config (use kg.yaml.example as template)
 kg.yaml
-skein.yaml
 
 # IDE
 .vscode/

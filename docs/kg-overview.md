@@ -1,16 +1,16 @@
-# Skein — Knowledge Graph for AI-Assisted Work
+# Project KG — Knowledge Graph for AI-Assisted Work
 
 ## What It Does
 
-Skein is a knowledge graph that accumulates what you learn across projects — decisions you made, patterns you noticed, discoveries, commits, documents — and makes all of it searchable by meaning, not just keywords.
+Project KG is a knowledge graph that accumulates what you learn across projects — decisions you made, patterns you noticed, discoveries, commits, documents — and makes all of it searchable by meaning, not just keywords.
 
-The problem it solves: when you're working across multiple projects over time, useful context gets buried in old activity logs, commit messages, and forgotten documents. Skein captures all of that into a single searchable graph so AI agents (and humans) can surface relevant knowledge when they need it.
+The problem it solves: when you're working across multiple projects over time, useful context gets buried in old activity logs, commit messages, and forgotten documents. Project KG captures all of that into a single searchable graph so AI agents (and humans) can surface relevant knowledge when they need it.
 
 ## How It Works
 
 ### Storage
 
-A single SQLite file (`skein.db`) with four tables:
+A single SQLite file (`kg.db`) with four tables:
 
 - **nodes** — each piece of knowledge (a decision, a pattern, a document, a commit, a note)
 - **edges** — explicit relationships between nodes (depends_on, informed_by, supersedes, relates_to, etc.)
@@ -19,7 +19,7 @@ A single SQLite file (`skein.db`) with four tables:
 
 ### Search
 
-When you query Skein, it runs two searches in parallel:
+When you query Project KG, it runs two searches in parallel:
 
 1. **Full-text search (FTS5)** — keyword matching with BM25 ranking
 2. **Vector similarity** — embeds your query text, computes cosine similarity against all stored vectors using brute-force NumPy
@@ -28,15 +28,16 @@ Both scores are normalized to [0, 1] and combined with a weighted sum (40% FTS, 
 
 ### Interface
 
-Skein runs as an MCP (Model Context Protocol) server, exposing 5 tools that any Claude Code session can call:
+Project KG runs as an MCP (Model Context Protocol) server, exposing 6 tools that any Claude Code session can call:
 
 | Tool | What It Does |
 |------|-------------|
-| `skein_search` | Combined FTS + vector search, with optional type/project filters |
-| `skein_get` | Retrieve a node and its graph neighborhood (configurable depth) |
-| `skein_add` | Add a knowledge node — auto-generates embedding, optional edges |
-| `skein_connect` | Create a relationship edge between two existing nodes |
-| `skein_status` | Overview: counts by type/project, recent nodes, sync state |
+| `kg_search` | Combined FTS + vector search, with optional type/project filters |
+| `kg_get` | Retrieve a node and its graph neighborhood (configurable depth) |
+| `kg_add` | Add a knowledge node — auto-generates embedding, optional edges |
+| `kg_connect` | Create a relationship edge between two existing nodes |
+| `kg_sync` | Run connectors to ingest external data |
+| `kg_status` | Overview: counts by type/project, recent nodes, sync state |
 
 ### Tech Stack
 
@@ -48,17 +49,17 @@ Skein runs as an MCP (Model Context Protocol) server, exposing 5 tools that any 
 
 Everything runs locally. No external services, no API keys, no network dependency.
 
-## How Skein Interacts with WCP
+## How Project KG Interacts with WCP
 
 **WCP** (Work Context Protocol) is a structured work tracker that stores work items as markdown files with YAML frontmatter — tasks, bugs, features, each with status, priority, activity logs, and attached artifacts (PRDs, architecture plans, etc.).
 
-**Skein reads WCP data as one of its input sources.** The key design point: WCP doesn't know Skein exists. WCP keeps doing its thing — structured work tracking. Skein reads those files and builds a searchable knowledge graph on top.
+**Project KG reads WCP data as one of its input sources.** The key design point: WCP doesn't know Project KG exists. WCP keeps doing its thing — structured work tracking. Project KG reads those files and builds a searchable knowledge graph on top.
 
 ```
 +-------------------+          +-------------------+
-|   wcp-data/       |  reads   |   Skein           |
+|   wcp-data/       |  reads   |   Project KG      |
 |                   +--------->|                   |
-|  SKEIN/SKEIN-1.md |  files   |  nodes table      |
+|  KG/KG-1.md       |  files   |  nodes table      |
 |  PIPE/PIPE-3.md   | directly |  embeddings table |
 |  artifacts/       |          |  edges table      |
 +-------------------+          +-------------------+
@@ -75,11 +76,11 @@ The WCP connector:
 
 ### Other Data Sources (Planned)
 
-Beyond WCP, Skein will also ingest:
+Beyond WCP, Project KG will also ingest:
 
 - **Git history** — commits become nodes, commit messages referencing work items create cross-links
 - **Filesystem** — standalone markdown files in configured directories become document nodes
 
 ## The End State
 
-When you're working on any project, you can search Skein and find relevant decisions and patterns from *other* projects — connections that would otherwise stay buried in old activity logs and forgotten documents. The graph grows over time as you work, and the more you put in, the more useful cross-project connections emerge.
+When you're working on any project, you can search Project KG and find relevant decisions and patterns from *other* projects — connections that would otherwise stay buried in old activity logs and forgotten documents. The graph grows over time as you work, and the more you put in, the more useful cross-project connections emerge.

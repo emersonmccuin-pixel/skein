@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from project_kg.db import KGDB
 from project_kg.embeddings import EmbeddingEngine
 from project_kg.models import SearchResult
@@ -111,3 +113,56 @@ def _search_vector(
 
     results = EmbeddingEngine.search_vectors(query_vec, node_ids, vectors, limit=limit)
     return [(nid, (score + 1.0) / 2.0) for nid, score in results]
+
+
+def _recency_boost(updated_at: str, max_boost: float) -> float:
+    """Linear decay: full boost at 0 days, zero boost at 90+ days."""
+    try:
+        updated = datetime.fromisoformat(updated_at)
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - updated).total_seconds() / 86400
+    except (ValueError, TypeError):
+        return 0.0
+    if age_days <= 7:
+        return max_boost
+    if age_days >= 90:
+        return 0.0
+    return max_boost * (90 - age_days) / (90 - 7)
+
+
+def context_search(
+    db: KGDB,
+    embeddings: EmbeddingEngine,
+    task_description: str,
+    project: str | None = None,
+    limit: int = 8,
+    recency_boost: float = 0.1,
+) -> list[SearchResult]:
+    """Smarter search for pre-action context retrieval.
+
+    Differs from plain search():
+    - Cross-project results when project is set (project-specific + unfiltered)
+    - Recency weighting (recent knowledge scores higher)
+    """
+    # Primary search — project-scoped if project is set
+    results = search(db, embeddings, task_description,
+                     limit=limit, project_filter=project)
+
+    # Cross-project: also search unfiltered to catch relevant knowledge from other projects
+    if project:
+        cross_results = search(db, embeddings, task_description,
+                               limit=limit // 2)
+        seen_ids = {r.node.id for r in results}
+        for r in cross_results:
+            if r.node.id not in seen_ids:
+                results.append(r)
+                seen_ids.add(r.node.id)
+
+    # Apply recency boost
+    for r in results:
+        r.score += _recency_boost(r.node.updated_at, recency_boost)
+
+    # Re-sort and trim
+    results.sort(key=lambda r: r.score, reverse=True)
+    return results[:limit]
