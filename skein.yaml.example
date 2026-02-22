@@ -1,0 +1,12 @@
+# Skein configuration
+# Copy this to skein.yaml and update paths for your system.
+
+# Path to the SQLite database (created automatically on first run)
+db_path: ./skein.db
+
+# Embedding model (default works well, no need to change)
+embedding_model: BAAI/bge-small-en-v1.5
+
+# Path to your WCP data directory (for the WCP connector)
+# Leave empty or remove if you don't use WCP.
+wcp_data_path: /path/to/your/wcp-data

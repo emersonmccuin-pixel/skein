@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Skein runtime data
+skein.db
+skein.db-shm
+skein.db-wal
+
+# User-specific config (use skein.yaml.example as template)
+skein.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+.python-version
+
+# Claude Code
+.claude/

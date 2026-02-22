@@ -1,0 +1,28 @@
+[project]
+name = "skein"
+version = "0.1.0"
+description = "Knowledge graph for AI-assisted knowledge work"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.8.1,<3.0.0",
+    "fastembed>=0.4.0",
+    "numpy>=1.26.0",
+    "pyyaml>=6.0",
+    "python-frontmatter>=1.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.11.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skein"]
+
+[project.scripts]
+skein = "skein.server:main"
