@@ -3,8 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from skein.db import SkeinDB
-from skein.embeddings import EmbeddingEngine
+from project_kg.db import KGDB
+from project_kg.embeddings import EmbeddingEngine
 
 
 @dataclass
@@ -32,21 +32,21 @@ class SyncResult:
 
 
 class Connector(ABC):
-    """Base class for Skein data connectors."""
+    """Base class for Project KG data connectors."""
 
     name: str  # e.g. "wcp", "git", "filesystem"
 
     @abstractmethod
     def sync(
         self,
-        db: SkeinDB,
+        db: KGDB,
         embeddings: EmbeddingEngine,
         full: bool = False,
     ) -> list[SyncResult]:
         """Run sync. Returns one SyncResult per source_key (namespace/repo/dir).
 
         Args:
-            db: Skein database instance.
+            db: Project KG database instance.
             embeddings: Embedding engine for vector generation.
             full: If True, re-sync everything. Otherwise incremental.
         """

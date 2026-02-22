@@ -6,12 +6,18 @@ dist/
 build/
 .venv/
 
-# Skein runtime data
+# Project KG runtime data
+kg.db
+kg.db-shm
+kg.db-wal
+
+# Legacy (can remove after migration)
 skein.db
 skein.db-shm
 skein.db-wal
 
-# User-specific config (use skein.yaml.example as template)
+# User-specific config (use kg.yaml.example as template)
+kg.yaml
 skein.yaml
 
 # IDE

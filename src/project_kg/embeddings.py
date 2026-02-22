@@ -29,15 +29,6 @@ class EmbeddingEngine:
 
     @staticmethod
     def cosine_similarity(query_vec: np.ndarray, vectors: np.ndarray) -> np.ndarray:
-        """Compute cosine similarity between query and a matrix of vectors.
-
-        Args:
-            query_vec: 1D array (384,)
-            vectors: 2D array (N, 384)
-
-        Returns:
-            1D array of similarities (N,)
-        """
         if vectors.ndim == 1:
             vectors = vectors.reshape(1, -1)
         query_norm = query_vec / (np.linalg.norm(query_vec) + 1e-10)

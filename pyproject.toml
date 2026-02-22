@@ -1,5 +1,5 @@
 [project]
-name = "skein"
+name = "project-kg"
 version = "0.1.0"
 description = "Knowledge graph for AI-assisted knowledge work"
 requires-python = ">=3.11"
@@ -22,7 +22,7 @@ requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/skein"]
+packages = ["src/project_kg"]
 
 [project.scripts]
-skein = "skein.server:main"
+project-kg = "project_kg.server:main"

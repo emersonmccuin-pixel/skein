@@ -10,26 +10,26 @@ from typing import Annotated
 from fastmcp import FastMCP
 from pydantic import Field
 
-from skein.config import SkeinConfig
-from skein.db import SkeinDB
-from skein.embeddings import EmbeddingEngine
-from skein.models import Node, Edge, _now
-from skein import search as search_module
+from project_kg.config import KGConfig
+from project_kg.db import KGDB
+from project_kg.embeddings import EmbeddingEngine
+from project_kg.models import Node, Edge, _now
+from project_kg import search as search_module
 
 
 @dataclass
-class SkeinContext:
-    db: SkeinDB
+class KGContext:
+    db: KGDB
     embeddings: EmbeddingEngine
-    config: SkeinConfig
+    config: KGConfig
 
 
-def create_lifespan(config: SkeinConfig):
+def create_lifespan(config: KGConfig):
     @asynccontextmanager
-    async def lifespan(server: FastMCP) -> AsyncIterator[SkeinContext]:
-        db = SkeinDB(config.db_path)
+    async def lifespan(server: FastMCP) -> AsyncIterator[KGContext]:
+        db = KGDB(config.db_path)
         embeddings = EmbeddingEngine(config.embedding_model)
-        ctx = SkeinContext(db=db, embeddings=embeddings, config=config)
+        ctx = KGContext(db=db, embeddings=embeddings, config=config)
         register_tools(server, ctx)
         try:
             yield ctx
@@ -38,17 +38,17 @@ def create_lifespan(config: SkeinConfig):
     return lifespan
 
 
-def register_tools(server: FastMCP, ctx: SkeinContext):
+def register_tools(server: FastMCP, ctx: KGContext):
 
     @server.tool(
-        name="skein_search",
+        name="kg_search",
         description=(
-            "Search the Skein knowledge graph. Combines full-text search (BM25) with "
+            "Search the Project KG knowledge graph. Combines full-text search (BM25) with "
             "semantic vector similarity for ranked results. Use this to find decisions, "
             "patterns, discoveries, and other knowledge nodes."
         ),
     )
-    def skein_search(
+    def kg_search(
         query: Annotated[str, Field(description="Search query — keywords or natural language")],
         type: Annotated[str | None, Field(description="Filter by node type: decision, pattern, discovery, work_item, document, commit, note")] = None,
         project: Annotated[str | None, Field(description="Filter by project name")] = None,
@@ -73,13 +73,13 @@ def register_tools(server: FastMCP, ctx: SkeinContext):
         ]
 
     @server.tool(
-        name="skein_get",
+        name="kg_get",
         description=(
             "Get a knowledge node and its graph neighborhood. Returns the node plus "
             "connected nodes up to `depth` hops away, along with all edges between them."
         ),
     )
-    def skein_get(
+    def kg_get(
         id: Annotated[str, Field(description="Node ID (uuid)")],
         depth: Annotated[int, Field(description="How many hops to traverse", ge=0, le=3)] = 1,
     ) -> dict:
@@ -98,13 +98,13 @@ def register_tools(server: FastMCP, ctx: SkeinContext):
         }
 
     @server.tool(
-        name="skein_add",
+        name="kg_add",
         description=(
             "Add a knowledge node to the graph. Automatically generates a vector embedding "
             "for semantic search. Optionally create edges to existing nodes in the same call."
         ),
     )
-    def skein_add(
+    def kg_add(
         type: Annotated[str, Field(description="Node type: decision, pattern, discovery, work_item, document, commit, note")],
         title: Annotated[str, Field(description="Short title for the node")],
         body: Annotated[str, Field(description="Full content — markdown supported")],
@@ -146,16 +146,15 @@ def register_tools(server: FastMCP, ctx: SkeinContext):
         return {"id": node_id, "title": title, "edges_created": len(created_edges)}
 
     @server.tool(
-        name="skein_connect",
+        name="kg_connect",
         description="Create an edge between two existing knowledge nodes.",
     )
-    def skein_connect(
+    def kg_connect(
         source_id: Annotated[str, Field(description="Source node ID")],
         target_id: Annotated[str, Field(description="Target node ID")],
         type: Annotated[str, Field(description="Edge type: depends_on, informed_by, supersedes, relates_to, implements, extracted_from")],
         weight: Annotated[float, Field(description="Edge weight (0-1)", ge=0, le=10)] = 1.0,
     ) -> dict:
-        # Verify both nodes exist
         if not ctx.db.get_node(source_id):
             return {"error": f"Source node {source_id} not found"}
         if not ctx.db.get_node(target_id):
@@ -173,24 +172,24 @@ def register_tools(server: FastMCP, ctx: SkeinContext):
         return {"id": edge.id, "source_id": source_id, "target_id": target_id, "type": type}
 
     @server.tool(
-        name="skein_sync",
+        name="kg_sync",
         description=(
             "Run connectors to ingest data from external sources into the knowledge graph. "
             "Currently supports: 'wcp' (Work Context Protocol items). "
             "Incremental by default — only processes items modified since last sync."
         ),
     )
-    def skein_sync(
+    def kg_sync(
         connector: Annotated[str | None, Field(description="Which connector to run: 'wcp', or None for all")] = None,
         full: Annotated[bool, Field(description="If true, re-sync everything (ignore last sync time)")] = False,
     ) -> dict:
-        from skein.connectors.wcp import WCPConnector
+        from project_kg.connectors.wcp import WCPConnector
 
         all_results = []
 
         if connector in (None, "wcp"):
             if not ctx.config.wcp_data_path:
-                return {"error": "wcp_data_path not configured in skein.yaml"}
+                return {"error": "wcp_data_path not configured in kg.yaml"}
             wcp = WCPConnector(ctx.config.wcp_data_path)
             results = wcp.sync(ctx.db, ctx.embeddings, full=full)
             all_results.extend(r.to_dict() for r in results)
@@ -212,25 +211,25 @@ def register_tools(server: FastMCP, ctx: SkeinContext):
         }
 
     @server.tool(
-        name="skein_status",
+        name="kg_status",
         description=(
             "Get an overview of the knowledge graph: total nodes, counts by type and project, "
             "recently updated nodes, and connector sync status."
         ),
     )
-    def skein_status() -> dict:
+    def kg_status() -> dict:
         return ctx.db.get_stats()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Skein Knowledge Graph MCP Server")
-    parser.add_argument("--config", type=str, help="Path to skein.yaml config file")
+    parser = argparse.ArgumentParser(description="Project KG — Knowledge Graph MCP Server")
+    parser.add_argument("--config", type=str, help="Path to kg.yaml config file")
     parser.add_argument("--transport", type=str, default="stdio", help="Transport: stdio, sse, streamable-http")
     parser.add_argument("--port", type=int, default=8111, help="Port for HTTP transports")
     args = parser.parse_args()
 
-    config = SkeinConfig.load(args.config)
-    server = FastMCP("Skein", lifespan=create_lifespan(config))
+    config = KGConfig.load(args.config)
+    server = FastMCP("Project KG", lifespan=create_lifespan(config))
 
     if args.transport in ("sse", "streamable-http"):
         server.run(transport=args.transport, host="127.0.0.1", port=args.port)

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import frontmatter
 
-from skein.connectors.base import Connector, SyncResult
-from skein.db import SkeinDB
-from skein.embeddings import EmbeddingEngine
-from skein.models import Node, Edge, SyncState, _now
+from project_kg.connectors.base import Connector, SyncResult
+from project_kg.db import KGDB
+from project_kg.embeddings import EmbeddingEngine
+from project_kg.models import Node, Edge, SyncState, _now
 
 ACTIVITY_SEPARATOR = "---\n\n## Activity"
 
@@ -42,7 +42,7 @@ class WCPConnector(Connector):
 
     def sync(
         self,
-        db: SkeinDB,
+        db: KGDB,
         embeddings: EmbeddingEngine,
         full: bool = False,
     ) -> list[SyncResult]:
@@ -61,7 +61,7 @@ class WCPConnector(Connector):
 
     def _sync_namespace(
         self,
-        db: SkeinDB,
+        db: KGDB,
         embeddings: EmbeddingEngine,
         ns_dir: Path,
         full: bool,
@@ -69,15 +69,12 @@ class WCPConnector(Connector):
         namespace = ns_dir.name
         result = SyncResult(connector=self.name, source_key=namespace)
 
-        # Check sync state for incremental
         sync_state = db.get_sync_state(self.name, namespace)
         last_sync = sync_state.last_sync if sync_state and not full else None
 
-        # Collect all .md files in this namespace (top-level only, not artifacts)
         md_files = sorted(ns_dir.glob("*.md"))
 
         for md_path in md_files:
-            # Skip files not modified since last sync (incremental)
             if last_sync and not full:
                 mtime = md_path.stat().st_mtime
                 import datetime
@@ -90,7 +87,6 @@ class WCPConnector(Connector):
             except Exception as e:
                 result.errors.append(f"{md_path.name}: {e}")
 
-        # Sync artifacts
         for item_dir in sorted(ns_dir.iterdir()):
             if not item_dir.is_dir():
                 continue
@@ -106,7 +102,6 @@ class WCPConnector(Connector):
                 except Exception as e:
                     result.errors.append(f"{artifact_path}: {e}")
 
-        # Update sync state
         now = _now()
         db.set_sync_state(SyncState(
             connector=self.name,
@@ -119,7 +114,7 @@ class WCPConnector(Connector):
 
     def _sync_work_item(
         self,
-        db: SkeinDB,
+        db: KGDB,
         embeddings: EmbeddingEngine,
         md_path: Path,
         namespace: str,
@@ -129,7 +124,6 @@ class WCPConnector(Connector):
         fm = parsed["frontmatter"]
         item_id = fm.get("id", md_path.stem)
 
-        # Build body: include activity log as part of the node content
         body_parts = [parsed["body"]]
         if parsed["activity"]:
             body_parts.append(f"\n\n## Activity\n\n{parsed['activity']}")
@@ -154,12 +148,10 @@ class WCPConnector(Connector):
         else:
             result.nodes_updated += 1
 
-        # Generate embedding
         embed_text = f"{node.title}\n\n{parsed['body']}"
         vector = embeddings.embed(embed_text)
         db.store_embedding(node.id, vector, embeddings.model_name)
 
-        # Create edges from parent field
         parent_id = fm.get("parent")
         if parent_id:
             parent_node = db.find_node_by_source("wcp", parent_id)
@@ -176,7 +168,7 @@ class WCPConnector(Connector):
 
     def _sync_artifact(
         self,
-        db: SkeinDB,
+        db: KGDB,
         embeddings: EmbeddingEngine,
         artifact_path: Path,
         namespace: str,
@@ -186,7 +178,6 @@ class WCPConnector(Connector):
         content = artifact_path.read_text(encoding="utf-8")
         source_id = f"{parent_callsign}/{artifact_path.name}"
 
-        # Try to extract title from first heading
         title = artifact_path.stem.replace("-", " ").title()
         for line in content.split("\n"):
             if line.startswith("# "):
@@ -210,12 +201,10 @@ class WCPConnector(Connector):
         else:
             result.nodes_updated += 1
 
-        # Generate embedding
         embed_text = f"{node.title}\n\n{content[:2000]}"
         vector = embeddings.embed(embed_text)
         db.store_embedding(node.id, vector, embeddings.model_name)
 
-        # Edge from parent work_item to this artifact
         parent_node = db.find_node_by_source("wcp", parent_callsign)
         if parent_node:
             edge = Edge(

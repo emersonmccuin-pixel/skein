@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from skein.models import Node, Edge, SyncState
+from project_kg.models import Node, Edge, SyncState
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS nodes (
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS sync_state (
 """
 
 
-class SkeinDB:
+class KGDB:
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path)
         self.conn = sqlite3.connect(str(self.db_path))
@@ -232,7 +232,7 @@ class SkeinDB:
     # --- Embeddings ---
 
     def store_embedding(self, node_id: str, vector: np.ndarray, model: str):
-        from skein.models import _now
+        from project_kg.models import _now
         self.conn.execute(
             """INSERT OR REPLACE INTO embeddings (node_id, vector, model, created_at)
                VALUES (?, ?, ?, ?)""",

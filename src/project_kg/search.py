@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from skein.db import SkeinDB
-from skein.embeddings import EmbeddingEngine
-from skein.models import SearchResult
+from project_kg.db import KGDB
+from project_kg.embeddings import EmbeddingEngine
+from project_kg.models import SearchResult
 
 # Weights for combining FTS and vector scores
 FTS_WEIGHT = 0.4
@@ -10,7 +10,7 @@ VECTOR_WEIGHT = 0.6
 
 
 def search(
-    db: SkeinDB,
+    db: KGDB,
     embeddings: EmbeddingEngine,
     query: str,
     limit: int = 10,
@@ -58,7 +58,7 @@ def search(
 
 
 def _search_fts(
-    db: SkeinDB, query: str, limit: int,
+    db: KGDB, query: str, limit: int,
     type_filter: str | None, project_filter: str | None,
 ) -> list[tuple[str, float]]:
     """FTS5 search, returns (node_id, normalized_score) with scores in [0, 1]."""
@@ -66,14 +66,11 @@ def _search_fts(
         raw = db.search_fts(query, limit=limit,
                             type_filter=type_filter, project_filter=project_filter)
     except Exception:
-        # FTS query syntax errors (e.g. unbalanced quotes) — fall back to no results
         return []
 
     if not raw:
         return []
 
-    # bm25 returns negative scores where more negative = better match
-    # Normalize to [0, 1] where 1 = best
     raw_scores = [score for _, score in raw]
     min_score = min(raw_scores)
     max_score = max(raw_scores)
@@ -82,7 +79,6 @@ def _search_fts(
     normalized: list[tuple[str, float]] = []
     for node_id, score in raw:
         if score_range > 0:
-            # More negative = better, so invert
             norm = (max_score - score) / score_range
         else:
             norm = 1.0
@@ -92,7 +88,7 @@ def _search_fts(
 
 
 def _search_vector(
-    db: SkeinDB, embeddings: EmbeddingEngine, query: str, limit: int,
+    db: KGDB, embeddings: EmbeddingEngine, query: str, limit: int,
     type_filter: str | None, project_filter: str | None,
 ) -> list[tuple[str, float]]:
     """Vector similarity search, returns (node_id, cosine_similarity)."""
@@ -100,7 +96,6 @@ def _search_vector(
     if not all_embeddings:
         return []
 
-    # Apply filters by fetching candidate node_ids
     if type_filter or project_filter:
         candidate_nodes = db.list_nodes(type_filter=type_filter, project_filter=project_filter, limit=10000)
         candidate_ids = {n.id for n in candidate_nodes}
@@ -114,6 +109,5 @@ def _search_vector(
 
     query_vec = embeddings.embed(query)
 
-    # cosine similarity is already in [-1, 1], shift to [0, 1]
     results = EmbeddingEngine.search_vectors(query_vec, node_ids, vectors, limit=limit)
     return [(nid, (score + 1.0) / 2.0) for nid, score in results]
