@@ -15,7 +15,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/skein.git
+git clone https://github.com/emersonmccuin-pixel/skein.git
 cd skein
 uv sync
 
@@ -73,7 +73,7 @@ wcp_data_path: /path/to/your/wcp-data
 
 ### WCP (Work Context Protocol)
 
-If you use [WCP](https://github.com/yourusername/wcp) for work tracking, Skein can sync all your work items and artifacts into the graph.
+If you use [WCP](https://github.com/emersonmccuin-pixel/wcp) for work tracking, Skein can sync all your work items and artifacts into the graph.
 
 Set `wcp_data_path` in `skein.yaml` to your WCP data directory, then:
 
